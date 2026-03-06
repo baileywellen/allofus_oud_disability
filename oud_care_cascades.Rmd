@@ -3,7 +3,7 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-can access google cloud storage buckets here: [https://console.cloud.google.com/storage/browser/fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler\@researchallofus.org/20250822?pageState=(%22StorageObjectListTable%22](https://console.cloud.google.com/storage/browser/fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250822?pageState=(%22StorageObjectListTable%22)%7B.uri%7D:(%22f%22:%22%255B%255D%22))&authuser=0&project=terra-vpc-sc-40b1cef8
+can access google cloud storage buckets if not running query_sud_disability.R and query_sud_nodisability.R immediately befforehand
 
 ```{r}
 library(lubridate)
@@ -22,48 +22,48 @@ library(table1)
 
 getting data from workspace buckets
 ```{r code to copy all needed files from google storage buckets}
-my_bucket <- Sys.getenv('fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909')
+my_bucket <- Sys.getenv('BUCKET_PATH/bq_exports/USER@researchallofus.org/FOLDER')
 
 
 #list the files
-system("gsutil ls -r gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909")
+system("gsutil ls -r gs://BUCKET_PATH/bq_exports/USER@researchallofus.org/FOLDER")
 
 #copy the files
 #syntax: gsutil cp source destination
 #disability conditions
-system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/condition_34437487/condition_34437487_000000000000.csv conditions_df.csv")
+system("gsutil cp gs://BUCKET_PATH/bq_exports/USER@researchallofus.org/FOLDER/condition_34437487/condition_34437487_000000000000.csv conditions_df.csv")
 #reference conditions
-system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/condition_45067226/condition_45067226_000000000000.csv condition_45067226.csv")
+system("gsutil cp gs://BUCKET_PATH/bq_exports/USER@researchallofus.org/FOLDER/condition_45067226/condition_45067226_000000000000.csv condition_45067226.csv")
 #devices
-system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/device_34437487/device_34437487_000000000000.csv device_34437487.csv")
+system("gsutil cp gs://BUCKET_PATH/bq_exports/USER@researchallofus.org/FOLDER/device_34437487/device_34437487_000000000000.csv device_34437487.csv")
 
 #people - disability
-system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/person_34437487/person_34437487_000000000000.csv person_34437487.csv")
+system("gsutil cp gs://BUCKET_PATH/bq_exports/USER@researchallofus.org/FOLDER/person_34437487/person_34437487_000000000000.csv person_34437487.csv")
 #people - reference
-system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/person_45067226/person_45067226_000000000000.csv person_45067226.csv")
+system("gsutil cp gs://BUCKET_PATH/bq_exports/USER@researchallofus.org/FOLDER/person_45067226/person_45067226_000000000000.csv person_45067226.csv")
 
 
 #procedures - disability
-system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/procedure_34437487/procedure_34437487_000000000000.csv procedure_34437487.csv")
+system("gsutil cp gs://BUCKET_PATH/bq_exports/USER@researchallofus.org/FOLDER/procedure_34437487/procedure_34437487_000000000000.csv procedure_34437487.csv")
 #procedures - reference
-system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/procedure_45067226/procedure_45067226_000000000000.csv procedure_45067226.csv")
+system("gsutil cp gs://BUCKET_PATH/bq_exports/USER@researchallofus.org/FOLDER/procedure_45067226/procedure_45067226_000000000000.csv procedure_45067226.csv")
 
 #survey - disability
-system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/survey_34437487/survey_34437487_000000000000.csv survey_34437487.csv")
+system("gsutil cp gs://BUCKET_PATH/bq_exports/USER@researchallofus.org/FOLDER/survey_34437487/survey_34437487_000000000000.csv survey_34437487.csv")
 #survey - reference
-system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/survey_45067226/survey_45067226_000000000000.csv survey_45067226.csv")
+system("gsutil cp gs://BUCKET_PATH/bq_exports/USER@researchallofus.org/FOLDER/survey_45067226/survey_45067226_000000000000.csv survey_45067226.csv")
 
 
 #the below code crashed in the middle. picking up from drug_34437487_00...08 - picking up from there
-system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/drug_34437487/drug_34437487_000000000008.csv drug_34437487_9.csv")
-system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/drug_34437487/drug_34437487_000000000009.csv drug_34437487_10.csv")
+system("gsutil cp gs://BUCKET_PATH/bq_exports/USER@researchallofus.org/FOLDER/drug_34437487/drug_34437487_000000000008.csv drug_34437487_9.csv")
+system("gsutil cp gs://BUCKET_PATH/bq_exports/USER@researchallofus.org/FOLDER/drug_34437487/drug_34437487_000000000009.csv drug_34437487_10.csv")
 
 
 
 #copy all disability drug files
 counter <- 0
 #there seem to be MANY drug files, not sure why?
-for (disability_drug_path in system("gsutil ls -r gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/drug_34437487", intern=TRUE)
+for (disability_drug_path in system("gsutil ls -r gs://BUCKET_PATH/bq_exports/USER@researchallofus.org/FOLDER/drug_34437487", intern=TRUE)
 )
 {
   command <- paste0("gsutil cp ", disability_drug_path, " drug_34437487_", as.character(counter), ".csv")
@@ -74,7 +74,7 @@ for (disability_drug_path in system("gsutil ls -r gs://fc-secure-22f0a037-6f28-4
 
 counter <- 0
 #there seem to be MANY drug files, not sure why?
-for (disability_drug_path in system("gsutil ls -r gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/drug_45067226", intern = TRUE)
+for (disability_drug_path in system("gsutil ls -r gs://BUCKET_PATH/bq_exports/USER@researchallofus.org/FOLDER/drug_45067226", intern = TRUE)
 )
 {
     command <- paste0("gsutil cp ", disability_drug_path, " drug_45067226_", as.character(counter), ".csv")
