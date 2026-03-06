@@ -1,0 +1,1017 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+can access google cloud storage buckets here: [https://console.cloud.google.com/storage/browser/fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler\@researchallofus.org/20250822?pageState=(%22StorageObjectListTable%22](https://console.cloud.google.com/storage/browser/fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250822?pageState=(%22StorageObjectListTable%22)%7B.uri%7D:(%22f%22:%22%255B%255D%22))&authuser=0&project=terra-vpc-sc-40b1cef8
+
+```{r}
+library(lubridate)
+install.packages("gdata")
+library(gdata)
+
+
+#install.packages("readxl")
+library(readxl)
+
+install.packages("table1")
+library(table1)
+
+```
+
+
+getting data from workspace buckets
+```{r code to copy all needed files from google storage buckets}
+my_bucket <- Sys.getenv('fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909')
+
+
+#list the files
+system("gsutil ls -r gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909")
+
+#copy the files
+#syntax: gsutil cp source destination
+#disability conditions
+system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/condition_34437487/condition_34437487_000000000000.csv conditions_df.csv")
+#reference conditions
+system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/condition_45067226/condition_45067226_000000000000.csv condition_45067226.csv")
+#devices
+system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/device_34437487/device_34437487_000000000000.csv device_34437487.csv")
+
+#people - disability
+system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/person_34437487/person_34437487_000000000000.csv person_34437487.csv")
+#people - reference
+system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/person_45067226/person_45067226_000000000000.csv person_45067226.csv")
+
+
+#procedures - disability
+system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/procedure_34437487/procedure_34437487_000000000000.csv procedure_34437487.csv")
+#procedures - reference
+system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/procedure_45067226/procedure_45067226_000000000000.csv procedure_45067226.csv")
+
+#survey - disability
+system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/survey_34437487/survey_34437487_000000000000.csv survey_34437487.csv")
+#survey - reference
+system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/survey_45067226/survey_45067226_000000000000.csv survey_45067226.csv")
+
+
+#the below code crashed in the middle. picking up from drug_34437487_00...08 - picking up from there
+system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/drug_34437487/drug_34437487_000000000008.csv drug_34437487_9.csv")
+system("gsutil cp gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/drug_34437487/drug_34437487_000000000009.csv drug_34437487_10.csv")
+
+
+
+#copy all disability drug files
+counter <- 0
+#there seem to be MANY drug files, not sure why?
+for (disability_drug_path in system("gsutil ls -r gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/drug_34437487", intern=TRUE)
+)
+{
+  command <- paste0("gsutil cp ", disability_drug_path, " drug_34437487_", as.character(counter), ".csv")
+  print(command)
+  system(command)
+  counter <- counter + 1
+}
+
+counter <- 0
+#there seem to be MANY drug files, not sure why?
+for (disability_drug_path in system("gsutil ls -r gs://fc-secure-22f0a037-6f28-4e8c-9652-a317f2f75a03/bq_exports/b.osweiler@researchallofus.org/20250909/drug_45067226", intern = TRUE)
+)
+{
+    command <- paste0("gsutil cp ", disability_drug_path, " drug_45067226_", as.character(counter), ".csv")
+    print(command)
+    system(command)
+    counter <- counter + 1
+}
+
+
+
+#i dont think we use the visits or observations files, so not reading them into memory
+
+```
+
+
+```{r renaming dfs before writing to workspace (only after first running the query)}
+
+
+#rename disability dataset
+mv("dataset_34437487_condition_df", "disability_condition_df")
+mv("dataset_34437487_drug_df", "disability_drug_df")
+mv("dataset_34437487_measurement_df", "disability_measurement_df")
+mv("dataset_34437487_observation_df", "disability_observation_df")
+mv("dataset_34437487_person_df", "disability_person_df")
+mv("dataset_34437487_procedure_df", "disability_procedure_df")
+mv("dataset_34437487_survey_df", "disability_survey_df")
+mv("dataset_34437487_visit_df", "disability_visit_df")
+mv("dataset_34437487_device_df", "disability_device_df")
+
+#rename reference (non-disability) dataset
+mv("dataset_45067226_condition_df", "reference_condition_df")
+mv("dataset_45067226_drug_df", "reference_drug_df")
+mv("dataset_45067226_measurement_df", "reference_measurement_df")
+mv("dataset_45067226_observation_df", "reference_observation_df")
+mv("dataset_45067226_person_df", "reference_person_df")
+mv("dataset_45067226_procedure_df", "reference_procedure_df")
+mv("dataset_45067226_survey_df", "reference_survey_df")
+mv("dataset_45067226_visit_df", "reference_visit_df")
+```
+
+```{r read the files from csv into memory}
+disability_condition_df <- read.csv("./raw_data/conditions_df.csv")
+reference_condition_df <- read.csv("./raw_data/condition_45067226.csv")
+
+disability_device_df <- read.csv("./raw_data/device_34437487.csv")
+
+disability_person_df <- read.csv("./raw_data/person_34437487.csv")
+reference_person_df <- read.csv("./raw_data/person_45067226.csv")
+
+disability_procedure_df <- read.csv("./raw_data/procedure_34437487.csv")
+reference_procedure_df <- read.csv("./raw_data/procedure_45067226.csv")
+
+disability_survey_df <- read.csv("./raw_data/survey_34437487.csv")
+reference_survey_df <- read.csv("./raw_data/survey_45067226.csv")
+
+
+disability_drug_list <- list()
+for(i in seq(1, 20))
+{
+  tryCatch(
+  {
+    drug_df <- read.csv(paste0("./raw_data/drug_34437487_",i, ".csv")) 
+    disability_drug_list[[length(disability_drug_list) + 1]] <-drug_df
+  },
+  error = function(e)
+  {
+    print(paste("No more drug dfs beyond", i))
+    print(e)
+    break
+  }
+)
+}
+disability_drug_df <- bind_rows(disability_drug_list) %>% distinct()
+rm(disability_drug_list)
+
+
+
+reference_drug_list <- list()
+for(i in seq(1, 20))
+{
+  tryCatch(
+  {
+    drug_df <- read.csv(paste0("./raw_data/drug_45067226_",i, ".csv")) 
+    reference_drug_list[[length(reference_drug_list) + 1]] = drug_df
+  },
+  error = function(e)
+  {
+    print(paste("No more drug dfs beyond", i))
+    print(e)
+    break
+  }
+)
+}
+reference_drug_df <- bind_rows(reference_drug_list) %>% distinct()
+rm(reference_drug_list)
+
+```
+
+
+
+```{r split procedures and conditions into oud and disability related}
+#the OUD-related codes should be the ones in the reference group
+oud_conditions <- unique(reference_condition_df$standard_concept_name)
+oud_procedures <- unique(reference_procedure_df$standard_concept_name)
+
+#split the disability dfs into oud-related and disability-related
+disability_oudcondition_df <- disability_condition_df %>% filter(standard_concept_name %in% oud_conditions)
+disability_disabilitycondition_df <-  disability_condition_df %>% filter(!(standard_concept_name %in% oud_conditions) & #not an oud condition
+                                                                          !grepl("G89", condition_source_value)  & #not a ICD 10 pain diagnosis
+                                                                                                                                                                                                                                 !grepl("Z79.891", condition_source_value)  & #not a ICD 10 chronic opioids diagnosis
+                                                                           !grepl("338", condition_source_value)   #not a ICD9 chronic pain diagnosis
+                                                                         )
+
+disability_paincondition_df <- disability_condition_df %>% filter(grepl("G89", condition_source_value)  | #ICD 10 pain diagnosis                                                                                
+                                                                    grepl("Z79.891", condition_source_value)  | #not a ICD 10 chronic opioids diagnosis
+                                                                           grepl("338", condition_source_value))   #not a ICD9 chronic pain diagnosis)
+
+disability_oudprocedure_df <- disability_procedure_df %>% filter(standard_concept_name %in% oud_procedures)
+disability_disabilityprocedure_df <- disability_procedure_df %>% filter(!(standard_concept_name %in% oud_procedures))
+
+
+#filter survey answers to only OUD-related
+disability_oudsurvey_df <- disability_survey_df %>% filter(grepl("opioid", answer, ignore.case=TRUE))
+
+#clear the memory of the combined dfs
+#rm(disability_condition_df, disability_procedure_df, disability_survey_df)
+
+```
+
+
+
+```{r functions to manually summarize data}
+
+
+get_num_people <- function(df)
+{
+  return(length(unique(df$person_id)))
+}
+get_num_surveys <- function(df)
+{
+  return(length(unique(df$person_id)))
+
+}
+#prevalence of lifetime and 3-month use
+get_survey_prevalence <- function(df)
+{
+ret_df <- df %>% 
+  group_by(question, answer) %>%
+  count()
+
+return(ret_df)
+}
+get_oud_diagnoses <- function(df)
+{
+  ret_df <- df %>% 
+  filter(!grepl("Poisoning", standard_concept_name)) %>%
+  distinct(person_id) %>%
+  nrow()
+  
+  return (ret_df)
+}
+get_oud_remission_diagnoses <- function(df)
+{
+  ret_df <- df %>% 
+  filter(grepl("remission", standard_concept_name)) %>%
+  distinct(person_id) %>%
+  nrow()
+  
+  return(ret_df)
+}
+#for exploratory purposes - look at the unique diagnoses
+get_unique_diagnoses <- function(df)
+{
+  ret_df <- df %>% distinct(source_concept_name)
+  return(ret_df)
+}
+
+classify_oud_procedures <- function(code)
+{
+  classified_code <- NA
+  counseling_codes <- c("762449006", "G0443", "860061000000101", "313071005", "H0004", "385989002", "60112009", "H0022", "266707007")
+  sbirt_codes <- c("G0396", "G2011", "G0397")
+  med_codes <- c("G2067", "G2068", "G2073", "310653000")
+  education_codes <- c("H0024", "710893009", "H0027", "408933008", "H0025", "H0029")
+  screening_codes <- c("H0002", "H0001")
+  drugtest_codes <- c("H0002", "H0001", "80305", "80306", "G0483", "80307")
+  detox_rehab_codes <- c("H0002","H0001","67516001", "56876005", "827094004", "87106005", "23915005", "61480009", "78092008", "20093000","64297001", "62213004")
+  
+  #print(code)
+  if (code %in% counseling_codes)
+  {
+    classified_code <- "counseling"
+  }
+  else if (code %in% sbirt_codes)
+  {
+    classified_code <- "SBIRT"
+  }
+  else if (code %in% med_codes)
+  {
+    classified_code <- "medication"
+  }
+  else if (code %in% education_codes)
+  {
+    classified_code <- "education"
+  }
+  else if (code %in% screening_codes)
+  {
+    classified_code <- "screening"
+  }
+  else if (code %in% drugtest_codes)
+  {
+    classified_code <- "drug_test"
+  }
+  else if (code %in% detox_rehab_codes)
+  {
+    classified_code <- "detox_rehab"
+  }
+  
+  return(classified_code)
+  
+}
+
+
+get_count_procedure_codes <- function(df)
+{
+  #this table shows the counts of people who have each procedure code
+ret_df <- df %>% 
+  #classify the procedure codes manually
+  mutate(classified = sapply(standard_concept_code, classify_oud_procedures)) %>%
+  #distinct(person_id, classified) %>%
+  group_by(classified) %>%
+  summarize(count_people = n_distinct(person_id), count_overall = n(), first_date = min(procedure_datetime), last_date = max(procedure_datetime))
+
+return(ret_df)
+}
+
+#get_bup_personids <- function(df)
+get_bup_counts <- function(df)
+{
+ret_df <- df %>% 
+  filter(grepl("buprenorphine", standard_concept_name) & 
+           #filter out bup formulations primarily indicated for pain
+           !grepl("butrans", standard_concept_name) & !grepl("buprenex", standard_concept_name)) %>%
+  group_by(person_id) %>%
+  summarize(n = n(), first_bup = min(drug_exposure_start_datetime), last_bup = max(drug_exposure_end_datetime))
+
+return(ret_df)
+}
+
+#get_methadone_personids <- function(df)
+get_methadone_counts <- function(df)
+{
+  ret_df <- df %>% 
+  filter(grepl("methadone", standard_concept_name)) %>%
+  group_by(person_id)  %>%
+  summarize(n = n(), first_methadone = min(drug_exposure_start_datetime), last_methadone = max(drug_exposure_end_datetime))
+  
+  return(ret_df)
+}
+
+#get_naltrexone_personids <- function(df)
+get_naltrexone_counts <- function(df)
+{
+  ret_df <- df %>% 
+  filter(grepl("naltrexone", standard_concept_name))  %>%
+  group_by(person_id)  %>%
+  summarize(n = n(), first_naltrexone = min(drug_exposure_start_datetime), last_naltrexone = max(drug_exposure_end_datetime))
+  
+  return(ret_df)
+}
+
+
+#There are 102,534 people in this dataset
+get_num_people(disability_person_df)
+#101,844 of them have answers (at all) in the surveys
+get_num_surveys(disability_survey_df)
+
+
+#3583 have used street opioids in life 
+#33 report having used at least once in the past 3 months
+#8255 have used prescription opioids in life 
+#299 report having used at least once in the past 3 months
+get_survey_prevalence(disability_survey_df)
+
+
+#7671 people have an OUD diagnosis of any kind
+get_oud_diagnoses(disability_oudcondition_df)
+
+#1354 of those have an OUD remission diagnosis
+get_oud_remission_diagnoses(disability_oudcondition_df)
+
+#list of all unique OUD diagnoses
+get_unique_diagnoses(disability_oudcondition_df)
+
+#summary table of OUD-related procedure codes
+get_count_procedure_codes(disability_oudprocedure_df)
+
+#2120 person IDs have at least 1 bup prescription (excluding butrans and buprenex)
+get_bup_personids(disability_drug_df)
+
+#2369 person IDs have at least 1 methadone prescirption
+get_methadone_personids(disability_drug_df) 
+
+
+#2535 person IDs have at least 1 naltrexone prescription
+get_naltrexone_personids(disability_drug_df)
+```
+
+```{r functions to summarize stages in cascade of care}
+
+get_pain_flag <- function(df)
+{
+  ret_df <- df %>% 
+              mutate(chronic_pain = (grepl("G89.2", condition_source_value) | 
+                                       grepl("G89.4", condition_source_value) | 
+                                       grepl("Z79.891", condition_source_value)  | 
+                                       grepl("338", condition_source_value)), 
+                     nonchronic_pain = (grepl("R52", condition_source_value) | (grepl("G89", condition_source_value)))) %>% 
+              select(person_id, condition_source_value, condition_start_datetime, condition_end_datetime, chronic_pain, nonchronic_pain) %>%
+              filter(chronic_pain | nonchronic_pain) %>%
+              group_by(person_id) %>% 
+              summarize(any_chronicpain = any(chronic_pain),
+                        count_chronicpain = sum(chronic_pain),
+                        first_chronicpain = min(condition_start_datetime),
+                        last_chronicpain = max(condition_end_datetime),
+                        any_nonchronicpain = any(nonchronic_pain),
+                        count_nonchronicpain = sum(nonchronic_pain),
+                        first_nonchronicpain = min(condition_start_datetime),
+                        last_nonchronicpain = max(condition_end_datetime)
+                        )
+  
+  return(ret_df)
+}
+
+#create a boolean column with TRUE/FALSE for any OUD diagnosis
+get_oud_dx_flag <- function(df)
+{
+  ret_df <- df%>% 
+                                      group_by(person_id) %>% 
+                                      #filter(!grepl("poisoning", standard_concept_name, ignore.case = TRUE)) %>%
+                                      filter(grepl("304", condition_source_value, ignore.case = TRUE) | 
+                                               grepl("305", condition_source_value, ignore.case =TRUE) | 
+                                               grepl("F11", condition_source_value, ignore.case = TRUE)) %>%
+                                      summarize(first_oud = first(source_concept_name), 
+                                             any_oud = ifelse(is.na(first_oud), FALSE, TRUE),
+                                             first_oud_date = min(condition_start_datetime, na.rm=TRUE), 
+                                             last_nonnull_oud_date = max(condition_end_datetime, na.rm=TRUE), 
+                                             last_oud_date = max(condition_end_datetime)) %>%
+                                      select(person_id, any_oud, first_oud_date, last_oud_date, last_nonnull_oud_date)
+
+  #returns a dataframe
+  return(ret_df)
+}
+
+
+#create a boolean column with TRUE/FALSE/NA for any OUD remission diagnosis
+get_oud_remission_flag <- function(df)
+{
+  ret_df <- df %>%
+                                                  #filter(grepl("remission", standard_concept_name)) %>%
+                                                  filter(grepl("304.03", condition_source_value) |
+                                                           grepl("304.73", condition_source_value) | 
+                                                           grepl("F11.*1", condition_source_value)) %>%
+
+                                                  group_by(person_id) %>%
+                                                  summarize(first_remission = first(source_concept_name),
+                                                         any_remission = ifelse(is.na(first_remission), FALSE, TRUE),
+                                                         first_remission_start = min(condition_start_datetime)) %>%
+                                                  select(person_id, any_remission)
+  
+  return(ret_df)
+}
+
+
+#get a boolean column for indication of any lifetime prescription or street opioid use
+get_lifetime_use <- function(df)
+{
+  ret_df <- df %>% filter((question_concept_id == 1585636)) %>% # & 
+                                  #((answer_concept_id == 1585644) |  #street opioids
+                                  #   (answer_concept_id == 1585645))) %>%  #prescription opioids
+                          mutate(opioid_use_life = ifelse(grepl("Prescription Opioids", answer), "prescription",
+                                        ifelse(grepl("Street Opioids", answer), "street", NA))) %>%
+                          group_by(person_id) %>%
+                          mutate(prescription_opioids_life = any(opioid_use_life == "prescription"),
+                                    street_opioids_life = any(opioid_use_life == "street"),
+                                 prescription_opioids_life = ifelse(is.na(prescription_opioids_life), FALSE, prescription_opioids_life),
+                                 street_opioids_life = ifelse(is.na(street_opioids_life), FALSE, street_opioids_life),
+                                 survey_date = min(survey_datetime)) %>%
+                    #remove the columns with street and opioid prescription data, because this will cause duplicate rows per person. we already have info we need
+                    select(-c(question, answer, answer_concept_id, opioid_use_life))
+  
+  return(ret_df)
+}
+
+
+
+#get a boolean for any indication of past 3 month street opioid use or prescription opioid use           
+get_3month_use <- function(df)
+{
+  ret_df <- df %>% 
+            filter(((question_concept_id == 1585692) | (question_concept_id == 1585698)) &  #filter to questions about past 3-month prescription or street opioid use
+                                  #filter out people who skipped, prefered not to answer, or said never
+                                  (!grepl("Skip", answer)) &  #'skip'
+                                  (!grepl("Prefer", answer)) & #'prefer not to answer'
+                                  (!grepl("Never", answer)) #'never'
+                                ) %>%
+                           mutate(opioid_use_3month = ifelse(grepl("Prescription", answer), "prescription",
+                                        ifelse(grepl("Street", answer), "street", NA))) %>%
+                          group_by(person_id) %>%
+                          summarize(prescription_opioids_3month = any(opioid_use_3month == "prescription"),
+                                    street_opioids_3month = any(opioid_use_3month == "street")) %>%
+                          mutate(prescription_opioids_3month = ifelse(is.na(prescription_opioids_3month), FALSE, prescription_opioids_3month),
+                                 street_opioids_3month = ifelse(is.na(street_opioids_3month), FALSE, street_opioids_3month)) 
+  
+  return(ret_df)
+}
+
+#get a boolean for OUD procedures
+get_oud_procedures <- function(df)
+{
+  ret_df <- df %>% 
+  mutate(classified = sapply(standard_concept_code, classify_oud_procedures)) %>%
+  select(person_id, classified) %>%
+  group_by(person_id, classified) %>%
+  count() %>% 
+  pivot_wider(id_cols=person_id, names_from=classified, values_from=n, names_prefix = "n_", values_fill = 0) %>%
+  mutate(any_counseling = ifelse(n_counseling == 0, FALSE, TRUE),
+         any_drug_test = ifelse(n_drug_test==0, FALSE, TRUE),
+         any_SBIRT = ifelse(n_SBIRT==0, FALSE, TRUE),
+         any_detox_rehab = ifelse(n_detox_rehab==0, FALSE, TRUE),
+         any_education = ifelse(n_education==0, FALSE, TRUE),
+         any_screening = ifelse(n_screening==0, FALSE, TRUE),
+         any_medication = ifelse(n_medication==0, FALSE, TRUE))
+  
+  return(ret_df)
+}
+
+get_overdose_flag <- function(df)
+{
+  ret_df <- df %>% 
+                                filter(grepl("Poisoning", standard_concept_name)) %>% 
+                                group_by(person_id) %>% 
+                                      summarize(first_overdose = first(source_concept_name), 
+                                                first_overdose_date = min(condition_start_datetime)) %>% 
+                                      mutate(any_overdose = ifelse(is.na(first_overdose), FALSE, TRUE)) %>%
+                                     select(person_id, any_overdose, first_overdose_date)
+  
+  return(ret_df)
+}
+
+#function to classify the disability codes
+
+get_disability_group <- function(disability_condition_df, disability_procedure_df, disability_device_df)
+{
+        disability_grouping <- read_excel("disability_oud_codes_frequency.xlsx")
+      names(disability_grouping) <- c("disability", "count", "disability_group")
+      disability_grouping$disability <- tolower(str_squish(disability_grouping$disability))
+      
+      #all the remaining conditions are pain
+      disability_condition_group_long <- disability_condition_df %>% 
+        mutate(standard_concept_name = tolower(str_squish(standard_concept_name)))%>%
+        left_join(disability_grouping, by=c('standard_concept_name'='disability')) %>%
+        select(person_id, standard_concept_name, condition_source_value, disability_group) %>%
+        mutate(disability_source = "condition")
+        #group_by(disability_group) %>%
+        #count()
+      
+      #all the remaining procedure codes are OUD-related
+      disability_procedure_group_long <- disability_procedure_df  %>% 
+        mutate(standard_concept_name = tolower(str_squish(standard_concept_name)))%>%
+        left_join(disability_grouping, by=c('standard_concept_name'='disability')) %>%
+        select(person_id, standard_concept_name, procedure_source_value, disability_group)%>%
+        mutate(disability_source = "procedure")
+      
+      
+      
+      disability_device_group_long <- disability_device_df  %>% 
+        mutate(standard_concept_name = tolower(str_squish(standard_concept_name)))%>%
+        left_join(disability_grouping, by=c('standard_concept_name'='disability')) %>%
+          select(person_id, standard_concept_name, device_source_value, disability_group)%>%
+        mutate(disability_source = "device")
+      
+      
+      disability_group_assignments <- bind_rows(disability_condition_group_long, disability_procedure_group_long, disability_device_group_long) %>%
+        filter((disability_group != "R") & !is.na(disability_group)) %>%
+        group_by(person_id, disability_group) %>%
+        summarize(distinct_diagnoses = n_distinct(standard_concept_name), concat_diagnoses = paste(unique(standard_concept_name), collapse = ',')) %>%
+        pivot_wider(id_cols=person_id, names_from=disability_group, values_from=c(distinct_diagnoses, concat_diagnoses)) %>%
+        #someone with only 1 disability type will have 2 of the columns "na" - check for that 
+        mutate(disability_group = ifelse((is.na(distinct_diagnoses_C) + is.na(distinct_diagnoses_P) + is.na(distinct_diagnoses_S)) == 2, 
+                                         #if the person only has 1 disability type - assign them that type
+                                         ifelse(!is.na(distinct_diagnoses_C), "C",
+                                                ifelse(!is.na(distinct_diagnoses_P),  "P", 
+                                                "S")), 
+                                  #else - assign them "M" for multiple
+                                  "M")
+               )
+      
+      return(disability_group_assignments)
+}
+
+
+
+#wrapper function to call and join the other functions to create columns for OUD outcomes of interest
+join_oud_data <- function(person_df, oudcondition_df, survey_df, oudprocedure_df, drug_df, paincondition_df,  group = "reference", disabilitycondition_df = NULL, disabilityprocedure_df = NULL, disabilitydevice_df = NULL )
+{
+  #cast the datetime cols to datetime
+  oudcondition_df$condition_start_datetime <- as.POSIXct(strptime(oudcondition_df$condition_start_datetime, format = "%Y-%m-%d %H:%M:%S"))
+  oudcondition_df$condition_end_datetime <- as.POSIXct(strptime(oudcondition_df$condition_end_datetime, format = "%Y-%m-%d %H:%M:%S"))
+  oudprocedure_df$procedure_datetime <- as.POSIXct(strptime(oudprocedure_df$procedure_datetime, format = "%Y-%m-%d %H:%M:%S"))
+  drug_df$drug_exposure_start_datetime <- as.POSIXct(strptime(drug_df$drug_exposure_start_datetime, format = "%Y-%m-%d %H:%M:%S"))
+  survey_df$survey_datetime <- as.POSIXct(strptime(survey_df$survey_datetime, format = "%Y-%m-%d %H:%M:%S"))
+  
+  #create intermediary dataframes for analysis
+    distinct_person_oud_diagnoses <- get_oud_dx_flag(oudcondition_df)
+    distinct_person_oud_remission_diagnoses <- get_oud_remission_flag(oudcondition_df)
+    distinct_lifetime_survey_responses <- get_lifetime_use(survey_df)
+    distinct_3month_survey_responses <- get_3month_use(survey_df)
+    distinct_oud_procedures <- get_oud_procedures(oudprocedure_df)
+    
+    
+    
+    #get a table of the counts of bup prescriptions per person
+    distinct_bup <- get_bup_counts(drug_df) %>%
+      rename(bup_count = n) %>%
+      mutate(any_bup = TRUE)
+    #get a table of methadone counts
+    distinct_methadone <- get_methadone_counts(drug_df) %>%
+      rename(methadone_count = n) %>%
+      mutate(any_methadone = TRUE)
+    #get a table of naltrexone counts
+    distinct_naltrexone <- get_naltrexone_counts(drug_df) %>%
+      rename(naltrexone_count = n) %>%
+      mutate(any_naltrexone = TRUE)
+    
+    distinct_overdose_diagnoses <- get_overdose_flag(oudcondition_df)
+    
+    pain_df <- get_pain_flag(paincondition_df)
+
+            
+    
+    #join all created oud columns together
+    joined_df <- person_df %>%
+      left_join(distinct_person_oud_diagnoses, by = 'person_id') %>%
+      left_join(distinct_person_oud_remission_diagnoses, by = 'person_id') %>%
+      left_join(distinct_lifetime_survey_responses, by = 'person_id') %>%
+      left_join (distinct_3month_survey_responses, by = 'person_id') %>%
+      left_join(distinct_oud_procedures, by = 'person_id') %>%
+      left_join(distinct_bup, by = 'person_id') %>%
+      left_join(distinct_methadone, by = 'person_id') %>%
+      left_join(distinct_naltrexone, by = 'person_id') %>% 
+      #flag if more than one MOUD is marked true
+      mutate(more_than_one_moud = ifelse((any_methadone + any_naltrexone + any_bup) > 1, TRUE, FALSE)) %>% 
+      left_join(distinct_overdose_diagnoses, by = 'person_id') %>% 
+      left_join(pain_df) %>%
+      #if there are any exact duplicate rows, drop them
+      filter(!duplicated(.))
+    
+    
+    #we will call this function for both disability and reference groups. reference group wont have disability dfs
+    if (group == "disability")
+    {
+      if (is.null(disabilitycondition_df) | is.null(disabilityprocedure_df) | is.null(disabilitydevice_df))
+      {
+        print("Please pass arguments for disability condition df, disability procedure df, and disability device df. If you want to run the reference group, change the group parameter to reference or do not pass anything (reference is the default) ") 
+      }
+      else
+      {
+        print("Joining disability diagnoses")
+                  
+        disability_conditions <- get_disability_group(disabilitycondition_df, disabilityprocedure_df, disabilitydevice_df)
+        joined_df <- joined_df %>% 
+          left_join(disability_conditions) 
+        
+        
+        #get the list of disability diagnoses for each person
+        #distinct_disability_diagnoses <- disability_disabilitycondition_df %>% 
+        #                            filter(!grepl("Poisoning", standard_concept_name)) %>%
+        #                            distinct(person_id, standard_concept_name, .keep_all =TRUE) %>%
+        #                            arrange(condition_start_datetime) %>%
+        #                            group_by(person_id) %>%
+        #                            summarize(num_disability_conditions = n(), 
+        #                                      first_disability_condition = first(standard_concept_name),
+        #                                      concat_disability_conditions = paste0(standard_concept_name, collapse=', '),
+        #                                      first_disability_code = first(condition_source_value),
+        #                                      concat_disability_codes = paste0(condition_source_value, collapse=', '))
+    
+        #some people were included because of a procedure - get those values
+        #distinct_disability_procedures <- disability_disabilityprocedure_df %>% 
+        #  distinct(person_id, standard_concept_name, .keep_all =TRUE) %>%
+        #  arrange(procedure_datetime) %>%
+        #  group_by(person_id) %>%
+        #  summarize(num_disability_procedures = n(), 
+        #            first_disability_procedure = first(standard_concept_name),
+        #            concat_disability_procedures = paste0(standard_concept_name, collapse=', '))
+        
+        #some people were inlcuded because of a device - get those values
+        #distinct_disability_devices <- disability_device_df %>% 
+        #  distinct(person_id, standard_concept_name, .keep_all =TRUE) %>%
+        ##  arrange(device_exposure_start_datetime) %>%
+        #  group_by(person_id) %>%
+         # summarize(num_disability_devices = n(), 
+        #            first_disability_device = first(standard_concept_name),
+        #            concat_disability_device = paste0(standard_concept_name, collapse=', '))
+        
+    
+          #join the disability diagnoses
+          #joined_df <- joined_df %>%
+          #  left_join(distinct_disability_diagnoses) %>% 
+          #  left_join(distinct_disability_procedures) %>%
+          ##  left_join(distinct_disability_devices) %>%
+          #  left_join(pain_df)
+      }
+    }
+    return(joined_df)
+}
+
+#function to replace boolean NAs with FALSE and numeric NAs with 0
+clean_joined_df <- function(joined_df)
+{
+  col_replace_na <- list()
+  # Replace NA in numeric columns with 0
+  for (col_name in colnames(joined_df)) 
+  {
+    if (is.numeric(joined_df[[col_name]])) 
+    {
+      col_replace_na[[col_name]] <- 0
+    }
+    else if(is.logical(joined_df[[col_name]]))
+    {
+      col_replace_na[[col_name]] <- FALSE
+    }
+  }
+
+  ret_df <- joined_df %>% replace_na(col_replace_na)
+  
+  return(ret_df)
+}
+
+
+print_summary <- function(joined_df)
+{
+  print("Prescription opioids, life")
+  print(table(joined_df$prescription_opioids_life))
+ 
+  print("Street opioids, life")
+  print(table(joined_df$street_opioids_life))
+  
+  print("Prescription opioids, 3 months")
+  print(table(joined_df$prescription_opioids_3month))
+  
+  print("Street opioids, 3 months")
+  table(joined_df$street_opioids_3month)
+  
+  print("Any OUD")
+  print(table(joined_df$any_oud))
+  
+  print("Any remission")
+  print(table(joined_df$any_remission))
+  
+  print("Any overdose")
+  print(table(joined_df$any_overdose))
+  
+  print("Any buprenorphine")
+  print(table(joined_df$any_bup))
+  
+  print("Any methadone")
+  print(table(joined_df$any_methadone))
+  
+  print("Any naltrexone")
+  print(table(joined_df$any_naltrexone))
+
+  print("Any counseling")
+  print(table(joined_df$any_counseling))
+  
+  print("Disability types:")
+  print(table(joined_df$disability_group))
+}
+
+
+```
+
+```{r}
+#answer_concept_id
+disability_joined_df %>% group_by(person_id) %>% filter(n() > 1) %>% ungroup()
+
+```
+
+```{r get disability group care cascade summary info}
+
+disability_joined_df <- join_oud_data(disability_person_df, disability_oudcondition_df, disability_oudsurvey_df, disability_oudprocedure_df, disability_drug_df, disability_paincondition_df, group = "disability", disabilitycondition_df = disability_disabilitycondition_df, disabilityprocedure_df = disability_disabilityprocedure_df, disabilitydevice_df = disability_device_df )
+
+disability_joined_df <- clean_joined_df(disability_joined_df)
+
+#parse out the people with disabilities we filtered out (we will add them to the reference group)
+disability_removed_df <- disability_joined_df %>%
+          filter(is.na(disability_group))
+
+disability_joined_df <- disability_joined_df %>% filter(!is.na(disability_group))
+
+#these match the manual calculations above
+print_summary(disability_joined_df)
+
+
+```
+
+```{r summary tables for all people with disability in this dataset}
+table1( ~gender + race + ethnicity, data = disability_joined_df, caption = "Demographics")
+
+table1(~any_oud + any_remission + prescription_opioids_life + street_opioids_life + prescription_opioids_3month + street_opioids_3month + any_overdose, data = disability_joined_df, caption = "Opioid Use and OUD prevalence")
+
+table1(~any_bup + any_methadone + any_naltrexone + more_than_one_moud + any_counseling + any_detox_rehab + any_SBIRT, data = disability_joined_df, caption = "OUD treatment")
+table1(~ disability_group + any_chronicpain, data =disability_joined_df, caption = "Disability")
+
+
+table1( ~gender + race + ethnicity+ any_oud + any_remission + prescription_opioids_life + street_opioids_life + prescription_opioids_3month + street_opioids_3month + any_overdose+ any_bup + any_methadone + any_naltrexone + more_than_one_moud + any_counseling + any_detox_rehab + any_SBIRT+ disability_group + any_chronicpain, data =disability_joined_df, caption = "Disability")
+
+table1( ~gender + race + ethnicity+ any_oud + any_remission +prescription_opioids_life + street_opioids_life + prescription_opioids_3month + street_opioids_3month + any_overdose+ any_bup + any_methadone + any_naltrexone + more_than_one_moud + any_counseling + any_detox_rehab + any_SBIRT+ any_chronicpain | disability_group , data =disability_joined_df, caption = "Disability")
+
+```
+
+As of 8/25, we want to filter dates of the data
+
+Start by filtering to only conditions documented 2021-2023
+
+```{r post 2021 disability group data cleaning}
+
+
+post2021_oud_conditions <- disability_oudcondition_df %>% 
+  mutate(condition_start_datetime = as.POSIXct(strptime(condition_start_datetime, format = "%Y-%m-%d %H:%M:%S")),
+         condition_end_datetime = as.POSIXct(strptime(condition_end_datetime, format = "%Y-%m-%d %H:%M:%S"))) %>%
+  filter((condition_start_datetime >= as.POSIXct("2021-01-01")) | 
+           (condition_end_datetime >= as.POSIXct("2021-01-01")))
+
+post2021_disability_conditions <- disability_disabilitycondition_df %>% 
+  mutate(condition_start_datetime = as.POSIXct(strptime(condition_start_datetime, format = "%Y-%m-%d %H:%M:%S")),
+         condition_end_datetime = as.POSIXct(strptime(condition_end_datetime, format = "%Y-%m-%d %H:%M:%S"))) %>%
+  filter((condition_start_datetime >= as.POSIXct("2021-01-01")) | 
+           (condition_end_datetime >= as.POSIXct("2021-01-01")))
+
+post2021_pain_conditions <- disability_paincondition_df %>% 
+  mutate(condition_start_datetime = as.POSIXct(strptime(condition_start_datetime, format = "%Y-%m-%d %H:%M:%S")),
+         condition_end_datetime = as.POSIXct(strptime(condition_end_datetime, format = "%Y-%m-%d %H:%M:%S"))) %>%
+  filter((condition_start_datetime >= as.POSIXct("2021-01-01")) | 
+           (condition_end_datetime >= as.POSIXct("2021-01-01")))
+
+post2021_disability_surveys <- disability_oudsurvey_df %>%
+  mutate(survey_datetime = as.POSIXct(strptime(survey_datetime, format = "%Y-%m-%d %H:%M:%S"))) %>%
+  filter(survey_datetime >= as.POSIXct("2021-01-01"))
+
+post2021_disability_drugs <- disability_drug_df %>% 
+  mutate(drug_exposure_start_datetime = as.POSIXct(strptime(drug_exposure_start_datetime, format = "%Y-%m-%d %H:%M:%S")),
+         drug_exposure_end_datetime = as.POSIXct(strptime(drug_exposure_end_datetime, format = "%Y-%m-%d %H:%M:%S"))) %>%
+  filter((drug_exposure_start_datetime >= as.POSIXct("2021-01-01")) | 
+           (drug_exposure_end_datetime >= as.POSIXct("2021-01-01")))
+
+post2021_disability_oud_procedures <- disability_oudprocedure_df %>% 
+  mutate(procedure_datetime = as.POSIXct(strptime(procedure_datetime, format = "%Y-%m-%d %H:%M:%S"))) %>%
+  filter((procedure_datetime >= as.POSIXct("2021-01-01")))
+
+post2021_disability_disability_procedures <- disability_disabilityprocedure_df %>% 
+  mutate(procedure_datetime = as.POSIXct(strptime(procedure_datetime, format = "%Y-%m-%d %H:%M:%S"))) %>%
+  filter((procedure_datetime >= as.POSIXct("2021-01-01")))
+
+post2021_disability_devices <- disability_device_df %>%
+  mutate(device_exposure_start_datetime = as.POSIXct(strptime(device_exposure_start_datetime, format = "%Y-%m-%d %H:%M:%S")),
+         device_exposure_end_datetime = as.POSIXct(strptime(device_exposure_end_datetime, format = "%Y-%m-%d %H:%M:%S"))) %>%
+  filter((device_exposure_start_datetime >= as.POSIXct("2021-01-01")) | 
+           (device_exposure_start_datetime >= as.POSIXct("2021-01-01")))
+
+
+
+
+#MERGE AND CLEAN
+post2021_disability_joined_df <- join_oud_data(disability_person_df, post2021_oud_conditions, post2021_disability_surveys, post2021_disability_oud_procedures, post2021_disability_drugs, post2021_pain_conditions, group = "disability", disabilitycondition_df = post2021_disability_conditions, disabilityprocedure_df = post2021_disability_disability_procedures, disabilitydevice_df = post2021_disability_devices )
+post2021_disability_joined_df <- clean_joined_df(post2021_disability_joined_df)
+
+#parse out the people with disabilities we filtered out (we will add them to the reference group)
+post2021_disability_removed_df <- post2021_disability_joined_df %>%
+          filter(is.na(disability_group))
+
+post2021_disability_joined_df <- post2021_disability_joined_df %>% filter(!is.na(disability_group))
+
+
+#these match the manual calculations above
+print_summary(post2021_disability_joined_df)
+
+table1( ~gender + race + ethnicity, data = post2021_disability_joined_df, caption = "Demographics")
+
+table1(~any_oud + any_remission + prescription_opioids_life + street_opioids_life + prescription_opioids_3month + street_opioids_3month + any_overdose, data = post2021_disability_joined_df, caption = "Opioid Use and OUD prevalence")
+
+table1(~any_bup + any_methadone + any_naltrexone + more_than_one_moud + any_counseling + any_detox_rehab + any_SBIRT, data = post2021_disability_joined_df, caption = "OUD treatment")
+table1(~ disability_group + any_chronicpain, data =post2021_disability_joined_df, caption = "Disability")
+
+table1( ~gender + race + ethnicity+ any_oud + any_remission + prescription_opioids_life + street_opioids_life + prescription_opioids_3month + street_opioids_3month + any_overdose+ any_bup + any_methadone + any_naltrexone + more_than_one_moud + any_counseling + any_detox_rehab + any_SBIRT+ disability_group + any_chronicpain, data =post2021_disability_joined_df, caption = "Disability")
+
+table1( ~gender + race + ethnicity+ any_oud + any_remission +prescription_opioids_life + street_opioids_life + prescription_opioids_3month + street_opioids_3month + any_overdose+ any_bup + any_methadone + any_naltrexone + more_than_one_moud + any_counseling + any_detox_rehab + any_SBIRT+  any_chronicpain | disability_group, data =post2021_disability_joined_df, caption = "Disability")
+
+
+rm(disability_person_df, post2021_oud_conditions, post2021_disability_surveys, post2021_disability_oud_procedures, post2021_disability_drugs, post2021_pain_conditions, post2021_disability_conditions, post2021_disability_disability_procedures, post2021_disability_devices)
+```
+
+```{r filter reference data}
+#split the disability dfs into oud-related and pain-related
+reference_paincondition_df <- reference_condition_df %>% filter(grepl("G89.2", condition_source_value) | 
+                                       grepl("G89.4", condition_source_value) | 
+                                       grepl("Z79.891", condition_source_value)  | 
+                                       grepl("338", condition_source_value))
+
+reference_oudcondition_df <- reference_condition_df %>% filter(!(grepl("G89.2", condition_source_value) | 
+                                       grepl("G89.4", condition_source_value) | 
+                                       grepl("Z79.891", condition_source_value)  | 
+                                       grepl("338", condition_source_value)))
+
+#filter survey answers to only OUD-related
+reference_oudsurvey_df <- reference_survey_df %>% filter(grepl("opioid", answer, ignore.case=TRUE))
+
+#clear the memory of the combined dfs
+rm(reference_condition_df, reference_survey_df)
+
+```
+
+```{r create summaries for reference data}
+reference_joined_df <- join_oud_data(reference_person_df, reference_oudcondition_df, reference_oudsurvey_df, reference_procedure_df, reference_drug_df, reference_paincondition_df, group = "reference")
+
+reference_joined_df<- clean_joined_df(reference_joined_df)
+
+#add the people from disability df whose disabilities were filtered out
+reference_joined_df <- bind_rows(reference_joined_df, disability_removed_df)
+#these match the manual calculations above
+print_summary(reference_joined_df)
+
+
+table1( ~gender + race + ethnicity+ any_oud + any_remission + prescription_opioids_life + street_opioids_life + prescription_opioids_3month + street_opioids_3month + any_overdose+ any_bup + any_methadone + any_naltrexone + more_than_one_moud + any_counseling + any_detox_rehab + any_SBIRT + any_chronicpain, data =reference_joined_df, caption = "Reference - no disability")
+
+
+```
+
+```{r post 2021 reference group}
+
+post2021_reference_oud_conditions <- reference_oudcondition_df %>% 
+  mutate(condition_start_datetime = as.POSIXct(strptime(condition_start_datetime, format = "%Y-%m-%d %H:%M:%S")),
+         condition_end_datetime = as.POSIXct(strptime(condition_end_datetime, format = "%Y-%m-%d %H:%M:%S"))) %>%
+  filter((condition_start_datetime >= as.POSIXct("2021-01-01")) | 
+           (condition_end_datetime >= as.POSIXct("2021-01-01")))
+
+post2021_reference_surveys <- reference_oudsurvey_df %>%
+  mutate(survey_datetime = as.POSIXct(strptime(survey_datetime, format = "%Y-%m-%d %H:%M:%S"))) %>%
+  filter(survey_datetime >= as.POSIXct("2021-01-01"))
+
+post2021_reference_pain_conditions <- reference_paincondition_df %>% 
+  mutate(condition_start_datetime = as.POSIXct(strptime(condition_start_datetime, format = "%Y-%m-%d %H:%M:%S")),
+         condition_end_datetime = as.POSIXct(strptime(condition_end_datetime, format = "%Y-%m-%d %H:%M:%S"))) %>%
+  filter((condition_start_datetime >= as.POSIXct("2021-01-01")) | 
+           (condition_end_datetime >= as.POSIXct("2021-01-01")))
+
+post2021_reference_drugs <- reference_drug_df %>% 
+  mutate(drug_exposure_start_datetime = as.POSIXct(strptime(drug_exposure_start_datetime, format = "%Y-%m-%d %H:%M:%S")),
+         drug_exposure_end_datetime = as.POSIXct(strptime(drug_exposure_end_datetime, format = "%Y-%m-%d %H:%M:%S"))) %>%
+  filter((drug_exposure_start_datetime >= as.POSIXct("2021-01-01")) | 
+           (drug_exposure_end_datetime >= as.POSIXct("2021-01-01")))
+
+post2021_reference_oud_procedures <- reference_procedure_df %>% 
+  mutate(procedure_datetime = as.POSIXct(strptime(procedure_datetime, format = "%Y-%m-%d %H:%M:%S"))) %>%
+  filter((procedure_datetime >= as.POSIXct("2021-01-01")))
+
+
+
+#MERGE AND CLEAN
+post2021_reference_joined_df <- join_oud_data(reference_person_df, post2021_reference_oud_conditions, post2021_reference_surveys, post2021_reference_oud_procedures, post2021_reference_drugs, post2021_reference_pain_conditions, group = "reference")
+post2021_reference_joined_df <- clean_joined_df(post2021_reference_joined_df)
+post2021_reference_joined_df <- bind_rows(post2021_reference_joined_df, post2021_disability_removed_df)
+
+table1( ~gender + race + ethnicity+ any_oud + any_remission + prescription_opioids_life + street_opioids_life + prescription_opioids_3month + street_opioids_3month + any_overdose+ any_bup + any_methadone + any_naltrexone + more_than_one_moud + any_counseling + any_detox_rehab + any_SBIRT + any_chronicpain, data =post2021_reference_joined_df, caption = "Reference post 2021 - no disability")
+
+
+
+rm(post2021_reference_oud_conditions, post2021_reference_surveys, post2021_reference_oud_procedures, post2021_reference_drugs, post2021_reference_pain_conditions)
+
+```
+
+```{r delete raw data to save workspace with only cleaned data}
+rm(disability_paincondition_df, disability_device_df, disability_disabilitycondition_df, disability_disabilityprocedure_df, disability_drug_df, disability_measurement_df, disability_observation_df, disability_oudcondition_df, disability_oudprocedure_df, disability_person_df, disability_procedure_df, disability_oudsurvey_df, disability_visit_df)
+
+rm(reference_oudcondition_df,reference_paincondition_df, reference_drug_df, reference_measurement_df, reference_observation_df, reference_person_df, reference_procedure_df, reference_oudsurvey_df, reference_visit_df)
+
+rm(disability_removed_df, post2021_disability_removed_df)
+
+
+rm(post2021_disability_conditions, post2021_disability_devices, post2021_disability_drugs, post2021_oud_conditions, post2021_pain_conditions, post2021_disability_surveys, drug_df, disability_survey_df, disability_condition_df, post2021_disability_disability_procedures, post2021_disability_oud_procedures)
+
+```
+
+
+HERE - write the summary files to .Rdata summary files
+
+
+
+
+
+
+
+
+
+```{r coalesce disability inclusion}
+disability_inclusion <- disability_joined_df %>% 
+  mutate(disability_inclusion = coalesce(first_disability_condition, first_disability_procedure, first_disability_device)) %>%
+  group_by(disability_inclusion) %>%
+  count() %>%
+  arrange(desc(n))
+```
+
+```{r look for prescriptions for people who reported 3 month prescription use}
+past3month_analgesics <- disability_joined_df %>% 
+  filter(prescription_opioids_3month) %>%
+  left_join(disability_drug_df) %>% 
+  mutate(last_exposure_date = pmax(as.POSIXct(drug_exposure_start_datetime), as.POSIXct(drug_exposure_end_datetime), na.rm = TRUE),
+         last_exposure_plus3 = last_exposure_date %m+% months(3)) %>%
+  #179 of the 290 people who reported past-3-month opioid use have analgesics documented in the past 3 months
+  filter((survey_date > drug_exposure_start_datetime) & (survey_date <= last_exposure_plus3)) %>%
+  select(person_id, survey_datetime, question, answer, standard_concept_name, drug_exposure_start_datetime, drug_exposure_end_datetime, route_concept_name, last_exposure_date, last_exposure_plus3) 
+
+write.csv(past3month_analgesics, "past3month_analgesics.csv")
+  
+```
+
+```{r}
+unique_oud_conditions <- disability_oudcondition_df %>%
+  group_by(standard_concept_name) %>%
+  count()
+```
+
+```{r how many unique people have at least one MOUD}
+
+
+
+
+
+
+```

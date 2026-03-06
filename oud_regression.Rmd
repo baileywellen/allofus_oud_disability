@@ -1,0 +1,626 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+install.packages("sjPlot")
+library(sjPlot)
+install.packages("table1")
+
+library(table1)
+
+
+install.packages("gridExtra")
+library(gridExtra) #for ggplot grid.arrange
+
+#install.packages("cowplot")
+library(patchwork)
+```
+
+
+
+(before running anything below, laod disability_reference_summary.RData FROM THE shared/ FOLDER into memory)
+
+```{r}
+post2021_disability_joined_df$disability <- "Disability"
+post2021_reference_joined_df$disability <- "No Disability"
+disability_reference_2021 <- bind_rows(post2021_disability_joined_df, post2021_reference_joined_df)
+
+#create a variable for any MOUD 
+disability_reference_2021$any_moud <- disability_reference_2021$any_bup | disability_reference_2021$any_naltrexone | disability_reference_2021$any_methadone
+
+
+#clean the race, gender, and ethnicity column
+disability_reference_2021 <- disability_reference_2021 %>% mutate(race = as.character(race),
+  race = ifelse(race %in% c("PMI: Skip", "None Indicated", "I prefer not to answer"), "Declined",
+                                                                                  ifelse(race %in% c("Another single population", "More than one population", "None of these"), "Other/multiple", 
+                                                                  race)))
+
+#collapse missing ethnicity
+disability_reference_2021 <- disability_reference_2021 %>% mutate(ethnicity = as.character(ethnicity),
+  ethnicity = ifelse(ethnicity %in% c("PMI: Skip", "No matching concept", "PMI: Prefer Not To Answer", "What Race Ethnicity: Race Ethnicity None Of These"), "Missing/Declined",  ethnicity))
+
+#very few people have "no matching concept" for gender. otherwise, it is a clean column
+disability_reference_2021 <- disability_reference_2021 %>% mutate(gender = as.character(gender),
+  gender = ifelse(gender == "No matching concept", "Not man only, not woman only, prefer not to answer, or skipped", gender))
+
+#calculate age 
+disability_reference_2021$age <- as.numeric(abs(difftime(disability_reference_2021$date_of_birth, as.POSIXct("2021-01-01"), units = "days")) / 365.25)
+
+#filter out people under 18
+disability_reference_2021 <- disability_reference_2021 %>% filter(age >= 18)
+
+#fill na for disability type
+disability_reference_2021 <- disability_reference_2021 %>% mutate(disability_group = ifelse(disability_group == "M", "Multiple",
+                                                                                                             ifelse(disability_group == "P", "Physical",
+                                                                                                                    ifelse(disability_group == "S", "Sensory",
+                                                                                                                           ifelse(disability_group == "C", "Cognitive", disability_group)))))
+disability_reference_2021$disability_group <- ifelse(is.na(disability_reference_2021$disability_group), "None", disability_reference_2021$disability_group)
+
+
+#make disability a factor
+disability_reference_2021$disability <- relevel(factor(disability_reference_2021$disability), ref = "No Disability")
+#disability_reference_2021$disability_group <- relevel(factor(disability_reference_2021$disability_group), ref = "None")
+disability_reference_2021$disability_group <- factor(disability_reference_2021$disability_group, levels = c("None", "Cognitive", "Sensory", "Physical", "Multiple"))
+
+disability_reference_2021$gender <- relevel(factor(disability_reference_2021$gender), ref = "Female")
+disability_reference_2021$race <- relevel(factor(disability_reference_2021$race), ref = "White")
+disability_reference_2021$ethnicity <- relevel(factor(disability_reference_2021$ethnicity), ref = "Not Hispanic or Latino")
+disability_reference_2021$any_oud <- relevel(factor(disability_reference_2021$any_oud), ref = "FALSE")
+disability_reference_2021$any_chronicpain <- relevel(factor(disability_reference_2021$any_chronicpain), ref = "FALSE")
+disability_reference_2021$any_moud <- relevel(factor(disability_reference_2021$any_moud), ref = "FALSE")
+disability_reference_2021$any_remission <- relevel(factor(disability_reference_2021$any_remission), ref = "FALSE")
+
+
+disability_reference_2021$any_methadone <- relevel(factor(disability_reference_2021$any_methadone), ref = "FALSE")
+disability_reference_2021$any_bup <- relevel(factor(disability_reference_2021$any_bup), ref = "FALSE")
+disability_reference_2021$any_naltrexone<- relevel(factor(disability_reference_2021$any_naltrexone), ref = "FALSE")
+
+
+rm(disability_joined_df, post2021_disability_joined_df, post2021_reference_joined_df, reference_joined_df)
+
+
+```
+
+
+```{r}
+table1( ~gender + race + ethnicity + age + any_oud + any_remission + prescription_opioids_life + street_opioids_life + prescription_opioids_3month + street_opioids_3month + any_overdose+ any_bup + any_methadone + any_naltrexone + more_than_one_moud + any_counseling + any_detox_rehab + any_SBIRT + any_chronicpain | disability_group, data =disability_reference_2021, render.continuous =  c(.="Mean (SD)", .="Median [Q1, Q3]"), caption = "Comparing disability and reference post-2021")
+
+table1( ~gender + race + ethnicity + age + any_oud + any_remission + prescription_opioids_life + street_opioids_life + prescription_opioids_3month + street_opioids_3month + any_overdose+ any_bup + any_methadone + any_naltrexone + more_than_one_moud + any_counseling + any_detox_rehab + any_SBIRT + any_chronicpain | disability, data =disability_reference_2021, render.continuous =  c(.="Mean (SD)", .="Median [Q1, Q3]"), caption = "Comparing disability and reference post-2021")
+```
+
+
+```{r univariate odds of oud diagnosis}
+#people with disability have higher odds (univariate) of OUD diagnosis
+oud_uni_glm <- glm(any_oud ~ disability, data = disability_reference_2021, family = "binomial")
+
+summary(oud_uni_glm)
+```
+```{r}
+oud_group_uni_glm <- glm(any_oud ~ disability_group, data = disability_reference_2021, family = "binomial")
+
+summary(oud_group_uni_glm)
+```
+
+
+
+```{r multivariate odds of OUD}
+oud_mult_glm <- glm(any_oud ~ disability_group + race + ethnicity + age + gender, data = disability_reference_2021, family = "binomial")
+
+summary(oud_mult_glm)
+```
+
+```{r multivariate logistic regression including chronic pain }
+oudpain_mult_glm <- glm(any_oud ~ disability_group + any_chronicpain + race + ethnicity + age + gender, data = disability_reference_2021, family = "binomial")
+
+summary(oudpain_mult_glm)
+```
+
+
+```{r}
+oudpain_interaction_glm <- glm(any_oud ~ disability_group *any_chronicpain + gender + race + ethnicity + age, data = disability_reference_2021, family = "binomial")
+summary(oudpain_interaction_glm)
+```
+
+
+```{r}
+
+tab_model(oud_uni_glm, oud_group_uni_glm, oud_mult_glm, oudpain_mult_glm, oudpain_interaction_glm, show.se = FALSE, collapse.ci=TRUE)
+
+#somehow the estimates become unreliable when stringing together several models, so separating
+#tab_model(oud_uni_glm, oud_group_uni_glm,  show.se = FALSE, collapse.ci=TRUE)
+
+#tab_model(oud_mult_glm, oudpain_mult_glm, show.se = FALSE, collapse.ci=TRUE)
+
+#tab_model(oudpain_interaction_glm,show.se = FALSE, collapse.ci=TRUE)
+
+```
+
+```{r}
+#there is a significant interaction between chronic pain and disability type
+
+#for people with cognitive disability, the effect of chronic pain on OUD odds differed only when disability type was cognitive
+
+plot_model(oudpain_interaction_glm, type = "int", title = "Marginal effects of chronic pain on OUD odds by disability type", axis.title = c("Disability type", "Odds of OUD"))
+```
+
+
+
+
+```{r univariate odds of opioid use}
+
+#no statistically significant different in prevalence, besides last 3 month prescription opioid use
+summary(glm(prescription_opioids_life ~ disability, data = disability_reference_2021, family = "binomial"))
+summary(glm(street_opioids_life ~ disability, data = disability_reference_2021, family = "binomial"))
+
+summary(glm(prescription_opioids_3month ~ disability, data = disability_reference_2021, family = "binomial"))
+summary(glm(street_opioids_3month~ disability, data = disability_reference_2021, family = "binomial"))
+
+```
+
+```{r}
+table1( ~disability_group + gender + race + ethnicity + age + any_remission + prescription_opioids_life + street_opioids_life + prescription_opioids_3month + street_opioids_3month + any_overdose+ any_bup + any_methadone + any_naltrexone + more_than_one_moud + any_counseling + any_detox_rehab + any_SBIRT + any_chronicpain | any_oud, data =disability_reference_2021,render.continuous =  c(.="Mean (SD)", .="Median [Q1, Q3]"), caption = "Comparing oud and no oud post-2021")
+```
+
+
+
+```{r univariate odds of remission given OUD diagnosis}
+oud_disability_reference_2021 <- disability_reference_2021 %>% filter(any_oud == "TRUE")
+
+
+
+```
+
+```{r}
+table1( ~gender + race + ethnicity + age +  any_remission + prescription_opioids_life + street_opioids_life + prescription_opioids_3month + street_opioids_3month + any_overdose+ any_bup + any_methadone + any_naltrexone + more_than_one_moud + any_moud + any_counseling + any_detox_rehab + any_SBIRT + any_chronicpain | disability_group,render.continuous =  c(.="Mean (SD)", .="Median [Q1, Q3]"),  data =oud_disability_reference_2021, caption = "Comparing disability and reference among people with OUD post-2021")
+
+table1( ~gender + race + ethnicity + age +  any_remission + prescription_opioids_life + street_opioids_life + prescription_opioids_3month + street_opioids_3month + any_overdose+ any_bup + any_methadone + any_naltrexone + more_than_one_moud + any_moud + any_counseling + any_detox_rehab + any_SBIRT + any_chronicpain | disability, ,render.continuous =  c(.="Mean (SD)", .="Median [Q1, Q3]"),  data =oud_disability_reference_2021, caption = "Comparing disability and reference among people with OUD post-2021")
+
+table1( ~disability_group + gender + race + ethnicity + age +  any_remission + prescription_opioids_life + street_opioids_life + prescription_opioids_3month + street_opioids_3month + any_overdose+ any_bup + any_methadone + any_naltrexone + more_than_one_moud + any_moud + any_counseling + any_detox_rehab + any_SBIRT  | any_chronicpain, data =oud_disability_reference_2021, render.continuous =  c(.="Mean (SD)", .="Median [Q1, Q3]"), caption = "Comparing disability and reference among people with OUD post-2021")
+```
+
+
+
+```{r univariate odds of moud}
+
+#people with disability have higher odds of moud receipt
+moud_uni_glm <- glm(any_moud ~ disability, data = oud_disability_reference_2021, family = "binomial")
+
+summary(moud_uni_glm)
+
+```
+
+```{r}
+#people with all disability types have higher odds of moud receipt than those with no disability
+moud_group_uni_glm <- glm(any_moud ~ disability_group, data = oud_disability_reference_2021, family = "binomial")
+
+summary(moud_group_uni_glm)
+```
+
+```{r multivariate odds of MOUD receipt}
+moud_group_mult_glm <- glm(any_moud ~ disability_group + race + ethnicity + gender + age, data = oud_disability_reference_2021, family = "binomial")
+
+summary(moud_group_mult_glm)
+
+```
+
+
+```{r multivariate odds of MOUD receipt among people with OUD }
+#people with disability and people with chronic pain less likely to receive MOUD???
+moudpain_group_mult_glm <- glm(any_moud ~ disability_group + gender + race + ethnicity + age +  any_chronicpain, data = oud_disability_reference_2021, family = "binomial")
+summary(moudpain_group_mult_glm)
+
+#still less likely for bup
+summary(glm(any_bup ~ disability + gender + race + ethnicity + any_chronicpain, data = oud_disability_reference_2021, family = "binomial"))
+#no difference for methadone
+summary(glm(any_methadone ~ disability + gender + race + ethnicity + any_chronicpain, data = oud_disability_reference_2021, family = "binomial"))
+#no difference for naltrexone
+summary(glm(any_naltrexone ~ disability + gender + race + ethnicity + any_chronicpain, data = oud_disability_reference_2021, family = "binomial"))
+
+```
+
+
+adding an interaction term:
+
+```{r MOUD outcome with interaction term}
+#moudpain_interaction_glm <- glm(any_moud ~ disability_group *any_chronicpain + gender + race + ethnicity + age, data = oud_disability_reference_2021, family = "binomial")
+moudpain_interaction_glm <- glm(any_moud ~ disability_group*any_chronicpain  + gender + race + ethnicity + age, data = oud_disability_reference_2021, family = "binomial")
+
+summary(moudpain_interaction_glm)
+
+tab_model(moudpain_interaction_glm, show.se = FALSE, collapse.ci = TRUE)
+```
+
+```{r}
+tab_model(moud_uni_glm, moud_group_uni_glm, moud_group_mult_glm, moudpain_group_mult_glm,moudpain_interaction_glm,  show.se = FALSE, collapse.ci=TRUE)
+
+
+#tab_model(moudpain_group_mult_glm, show.se = FALSE, collapse.ci=TRUE)
+```
+
+
+
+```{r}
+#these dont use the marginal standardization strategy we decided on
+#plot_model(moudpain_interaction_glm, type = "int", title = "Marginal effects of chronic pain on MOUD odds by disability type", axis.title = c("Disability type", "Odds of MOUD"))
+```
+
+
+LOOKING AT DIFFERENT TYPES OF MOUD
+
+
+
+```{r univariate odds with MOUD type}
+methadone_uni_glm <- glm(any_methadone ~ disability, data = oud_disability_reference_2021, family = "binomial")
+bup_uni_glm <- glm(any_bup ~ disability, data = oud_disability_reference_2021, family = "binomial")
+naltrexone_uni_glm <- glm(any_naltrexone ~ disability, data = oud_disability_reference_2021, family = "binomial")
+
+
+methadone_group_uni_glm <- glm(any_methadone ~ disability_group, data = oud_disability_reference_2021, family = "binomial")
+bup_group_uni_glm <- glm(any_bup ~ disability_group, data = oud_disability_reference_2021, family = "binomial")
+naltrexone_group_uni_glm <- glm(any_naltrexone ~ disability_group, data = oud_disability_reference_2021, family = "binomial")
+
+
+tab_model(methadone_uni_glm, methadone_group_uni_glm, bup_uni_glm, bup_group_uni_glm, naltrexone_uni_glm, naltrexone_group_uni_glm, show.se=FALSE, collapse.ci=TRUE)
+```
+
+```{r multivariate odds with MOUD type}
+
+methadone_group_mult_glm <- glm(any_methadone ~ disability_group + gender + race + ethnicity + age, data = oud_disability_reference_2021, family = "binomial")
+bup_group_mult_glm <- glm(any_bup ~ disability_group + gender + race + ethnicity + age, data = oud_disability_reference_2021, family = "binomial")
+naltrexone_group_mult_glm <- glm(any_naltrexone ~ disability_group + gender + race + ethnicity + age, data = oud_disability_reference_2021, family = "binomial")
+
+methadonepain_group_mult_glm <- glm(any_methadone ~ disability_group + gender + race + ethnicity + age + any_chronicpain, data = oud_disability_reference_2021, family = "binomial")
+buppain_group_mult_glm <- glm(any_bup ~ disability_group + gender + race + ethnicity + age + any_chronicpain, data = oud_disability_reference_2021, family = "binomial")
+naltrexonepain_group_mult_glm <- glm(any_naltrexone ~ disability_group + gender + race + ethnicity + age + any_chronicpain, data = oud_disability_reference_2021, family = "binomial")
+
+tab_model(methadone_group_mult_glm, methadonepain_group_mult_glm, bup_group_mult_glm, buppain_group_mult_glm, naltrexone_group_mult_glm, naltrexonepain_group_mult_glm, show.se=FALSE, collapse.ci=TRUE)
+```
+
+
+```{r interactoin terms with individual moud types}
+methadone_interaction_mult_glm <- glm(any_methadone ~ disability_group*any_chronicpain + gender + race + ethnicity + age , data = oud_disability_reference_2021, family = "binomial")
+bup_interaction_mult_glm <- glm(any_bup ~ disability_group*any_chronicpain + gender + race + ethnicity + age, data = oud_disability_reference_2021, family = "binomial")
+naltrexone_interaction_mult_glm <- glm(any_naltrexone ~ disability_group*any_chronicpain + gender + race + ethnicity + age, data = oud_disability_reference_2021, family = "binomial")
+
+tab_model(methadone_interaction_mult_glm,bup_interaction_mult_glm,naltrexone_interaction_mult_glm, show.se=FALSE, collapse.ci=TRUE)
+
+```
+
+```{r}
+#plot_model(methadone_interaction_mult_glm, type = "int", title = "Marginal effects of chronic pain on methadone odds by disability type", axis.title = c("Disability type", "Odds of methadone"))
+#plot_model(bup_interaction_mult_glm, type = "int", title = "Marginal effects of chronic pain on buprenorphine odds by disability type", axis.title = c("Disability type", "Odds of buprenorphine"))
+
+#plot_model(naltrexone_interaction_mult_glm, type = "int", title = "Marginal effects of chronic pain on naltrexone odds by disability type", axis.title = c("Disability type", "Odds of naltrexone"))
+
+```
+
+
+
+
+```{r create table with summary info}
+tab_model(methadone_uni_glm, methadone_group_uni_glm, methadone_group_mult_glm, methadonepain_group_mult_glm, 
+          bup_uni_glm, bup_group_uni_glm, bup_group_mult_glm, buppain_group_mult_glm, 
+          naltrexone_uni_glm, naltrexone_group_uni_glm, naltrexone_group_mult_glm, naltrexonepain_group_mult_glm, show.se=FALSE, collapse.ci=TRUE)
+
+```
+
+
+```{r create cross tabs}
+disability_reference_2021 %>% group_by(any_chronicpain, any_oud) %>% count()
+disability_reference_2021 %>% group_by(any_oud, any_moud) %>% count()
+
+oud_disability_reference_2021 %>% group_by(any_chronicpain, any_moud) %>% count()
+
+oud_disability_reference_2021 %>% group_by(any_chronicpain, any_bup) %>% count()
+oud_disability_reference_2021 %>% group_by(any_chronicpain, any_methadone) %>% count()
+oud_disability_reference_2021 %>% group_by(any_chronicpain, any_naltrexone) %>% count()
+
+
+
+disability_reference_2021 %>% group_by(disability_group, any_oud) %>% count()
+oud_disability_reference_2021 %>% group_by(disability_group, any_moud) %>% count()
+
+```
+
+
+
+
+
+```{r multivariate odds of remission ICD code among people with OUD diagnosis}
+#among people with an OUD diagnosis, people with disability are less likely to have a remission diagnosis
+remission_uni_glm <- glm(any_remission ~ disability, data = oud_disability_reference_2021, family = "binomial")
+summary(remission_uni_glm)
+
+
+
+#among people with OUD, people with most disability types are less likely to achieve remission, except for sensory
+remission_group_uni_glm <- glm(any_remission ~ disability_group, data = oud_disability_reference_2021, family = "binomial")
+summary(remission_group_uni_glm)
+
+
+#control for demographics
+remission_group_mult_glm <- glm(any_remission ~ disability_group + race + ethnicity + age + gender, data = oud_disability_reference_2021, family = "binomial")
+summary(remission_group_mult_glm)
+
+#control for demographics and chronic pain
+remissionpain_group_mult_glm <- glm(any_remission ~ disability_group + race + ethnicity + age + gender + any_chronicpain, data = oud_disability_reference_2021, family = "binomial")
+summary(remissionpain_group_mult_glm)
+
+
+#control for demographics, chronic pain, and moud
+remissionpainmoud_group_mult_glm <- glm(any_remission ~ disability_group + race + ethnicity + age + gender + any_chronicpain + any_moud, data = oud_disability_reference_2021, family = "binomial")
+summary(remissionpainmoud_group_mult_glm)
+
+```
+```{r}
+#create an interaction between pain and disability
+remission_painint_mult_glm <- glm(any_remission ~ disability_group*any_chronicpain + any_moud + race + ethnicity + age + gender, data = oud_disability_reference_2021, family = "binomial")
+#remission_painint_mult_glm <- glm(any_remission ~ any_chronicpain*disability_group + any_moud + race + ethnicity + age + gender, data = oud_disability_reference_2021, family = "binomial")
+
+summary(remission_painint_mult_glm)
+
+```
+```{r}
+#plot_model(remission_painint_mult_glm, type="int")
+#tab_model(remission_painint_mult_glm, collapse.ci = TRUE, show.se=FALSE)
+```
+
+
+```{r}
+#control for demographics, chronic pain, and moud
+#remission_moudint_mult_glm <- glm(any_remission ~ disability_group*any_moud +any_chronicpain + race + ethnicity + age + gender, data = oud_disability_reference_2021, family = "binomial")
+
+remission_moudint_mult_glm <- glm(any_remission ~ any_moud*disability_group +any_chronicpain + race + ethnicity + age + gender, data = oud_disability_reference_2021, family = "binomial")
+
+summary(remission_moudint_mult_glm)
+```
+
+
+
+```{r}
+#plot_model(remission_moudint_mult_glm, type = "int")
+```
+
+
+```{r}
+tab_model(remission_uni_glm, remission_group_uni_glm, remission_group_mult_glm, remissionpain_group_mult_glm, remissionpainmoud_group_mult_glm, remission_moudint_mult_glm, show.se = FALSE, collapse.ci = TRUE )
+
+```
+
+
+create final table with all models for challenge
+```{r}
+tab_model(moud_group_uni_glm, moudpain_group_mult_glm, remission_group_uni_glm, remissionpainmoud_group_mult_glm, show.se = FALSE, collapse.ci = TRUE )
+
+#tab_model(moud_group_uni_glm, moudpain_group_mult_glm, remission_group_uni_glm, remission_interaction_group_mult_glm, show.se = FALSE, collapse.ci = TRUE )
+
+
+```
+
+
+
+```{r}
+#getting the predicted rates not only plotting, but for tables too
+#install.packages("modelbased")
+
+#https://easystats.github.io/modelbased/reference/estimate_expectation.html
+#library(modelbased)
+#modelbased::estimate_prediction(remission_painint_mult_glm, by=c("disability_group", "any_chronicpain"))
+
+library(ggeffects)
+
+
+#11/5 - do we want to report predicted probs only for interaction terms or for all coefs? 
+
+#oud_painint_predictedprobs <- ggeffects::predict_response(oudpain_interaction_glm, terms = c("disability_group", "any_chronicpain"), margin = "marginalmeans")# %>% as.data.frame() %>% rename("chronic_pain"="group", "Disability_Group" = "x")
+oud_painint_predictedprobs <- ggeffects::predict_response(oudpain_interaction_glm, terms = c("any_chronicpain", "disability_group"), margin = "marginalmeans")# %>% as.data.frame() %>% rename("chronic_pain"="group", "Disability_Group" = "x")
+
+oud_painint_predictedprobs
+print("_____________________")
+
+#moud_painint_predictedprobs <- ggeffects::predict_response(moudpain_interaction_glm, terms = c("disability_group", "any_chronicpain"), margin = "marginalmeans")# %>% as.data.frame() %>% rename("chronic_pain"="group", "Disability_Group" = "x")
+moud_painint_predictedprobs <- ggeffects::predict_response(moudpain_interaction_glm, terms = c("any_chronicpain", "disability_group"), margin = "marginalmeans")# %>% as.data.frame() %>% rename("chronic_pain"="group", "Disability_Group" = "x")
+
+moud_painint_predictedprobs
+print("_____________________")
+
+#remission_painint_predictedprobs <- ggeffects::predict_response(remission_painint_mult_glm, terms = c("disability_group", "any_chronicpain"), margin = "marginalmeans")# %>% as.data.frame() %>% rename("chronic_pain"="group", "Disability_Group" = "x")
+remission_painint_predictedprobs <- ggeffects::predict_response(remission_painint_mult_glm, terms = c("any_chronicpain", "disability_group"), margin = "marginalmeans")# %>% as.data.frame() %>% rename("chronic_pain"="group", "Disability_Group" = "x")
+
+remission_painint_predictedprobs
+print("_____________________")
+
+#remission_moudint_predictedprobs <- ggeffects::predict_response(remission_moudint_mult_glm, terms = c("disability_group", "any_moud"), margin = "marginalmeans") #%>% as.data.frame() %>% rename("moud"="group", "Disability_Group" = "x")
+remission_moudint_predictedprobs <- ggeffects::predict_response(remission_moudint_mult_glm, terms = c("any_moud", "disability_group"), margin = "marginalmeans") #%>% as.data.frame() %>% rename("moud"="group", "Disability_Group" = "x")
+
+ remission_moudint_predictedprobs
+ 
+```
+
+
+```{r plot the interaction terms with the marginal standardization effect}
+
+#plot MOUD outcome - chronic pain x disability interaction
+ moudpain_plot <- plot(moud_painint_predictedprobs) + 
+  labs(title = "B. MOUD by Chronic Pain", #\n(n=7,328)
+       x = "Chronic Pain", #"Disability Type", 
+       y = "Probability \nof MOUD", 
+       color = "Disability Type"#, #"Chronic Pain",
+       #caption = "\npredicted probabilities are for mean age (50.71) and weighted averages\n across categorical variables (gender, race, ethnicity)"
+       ) +
+  theme(legend.position = "top")+ 
+   #add line connecting 'no' disability points 
+   annotate( "segment",
+    x = 0.9, y = 0.375, xend = 1.9, yend = 0.32,
+    color = 'red',
+    alpha = 0.7,
+    linewidth = 1
+  ) + 
+   #add line connecting 'multiple' disability points 
+   #using annotate() instead of geom_segment() so it doesnt inherit plotting properties from predicted probs plot
+   annotate( "segment",
+    x = 1.1, y = 0.45, xend = 2.1, yend = 0.27,
+    color = 'orange2',
+    alpha = 0.3,
+    linewidth = 1
+  ) 
+  
+
+#plot remission outcome - chronic pain x disability interaction ---------------------------------------------------
+remissionpain_plot <- plot(remission_painint_predictedprobs) + 
+  labs(title = "C. Remission by Chronic Pain", #\n(n=7,328)
+       x = "Chronic Pain", #"Disability Type", 
+       y = "Probability \nof Remission", 
+       color = "Disability Type"#, #"Chronic Pain",
+       #caption = "\npredicted probabilities are for mean age (50.71) and weighted averages\n across categorical variables (gender, race, ethnicity, MOUD)"
+       ) +
+  theme(legend.position = "top") + 
+   #add line connecting 'no' disability points 
+   annotate( "segment",
+    x = 0.9, y = 0.42, xend = 1.9, yend = 0.31,
+    color = 'red',
+    alpha = 0.7,
+    linewidth = 1
+  )+ 
+   #add line connecting 'physical' disability points 
+   annotate( "segment",
+    x = 1.05, y = 0.47, xend = 2.05, yend = 0.27,
+    color = 'purple',
+    alpha = 0.3,
+    linewidth = 1
+  )
+
+ #plot remission outcome - MOUD x disability interaction--------------------------------
+remissionmoud_plot <-  plot(remission_moudint_predictedprobs) + 
+  labs(title = "D. Remission by MOUD", #\n(n=7,328)
+       x = "MOUD", #"Disability Type", 
+       y = "Probability \nof Remission", 
+       color = "Disability Type"#,#"MOUD",
+       #caption = "\npredicted probabilities are for mean age (50.71) and weighted averages\n across categorical variables (gender, race, ethnicity, chronic pain)"
+       ) +
+  theme(legend.position = "top") + 
+   
+   #add line connecting 'multiple' disability points 
+   #using annotate() instead of geom_segment() so it doesnt inherit plotting properties from predicted probs plot
+   annotate( "segment",
+    x = 1.1, y = 0.24, xend = 2.1, yend = 0.51,
+    color = 'orange2',
+    alpha = 0.3,
+    linewidth = 1
+  ) + 
+   #add line connecting 'physical' disability points 
+   annotate( "segment",
+    x = 1.05, y = 0.23, xend = 2.05, yend = 0.51,
+    color = 'purple',
+    alpha = 0.3,
+    linewidth = 1
+  )+ 
+   #add line connecting 'sensory' disability points 
+   annotate( "segment",
+    x = 1, y = 0.27, xend = 2, yend = 0.64,
+    color = 'green4',
+    alpha = 0.3,
+    linewidth = 1
+  )+ 
+   #add line connecting 'no' disability points 
+   annotate( "segment",
+    x = 0.9, y = 0.3, xend = 1.9, yend = 0.43,
+    color = 'red',
+    alpha = 0.7,
+    linewidth = 1
+  )
+ 
+  #plot OUD outcome - chronic pain x disability interaction--------------------------------
+ oudpain_plot <- plot(oud_painint_predictedprobs) + 
+  labs(title = "A. OUD by Chronic Pain", 
+       x = "Chronic Pain", #"Disability Type", 
+       y = "Probability \nof OUD Diagnosis", 
+       color = "Disability Type"#, #"Chronic Pain",
+       #caption = "\npredicted probabilities are for mean age (53.08) and weighted averages\n across categorical variables (gender, race, ethnicity)"
+       ) +
+  theme(legend.position = "top") + 
+   
+   #add line connecting 'no' disability points 
+   #using annotate() instead of geom_segment() so it doesnt inherit plotting properties from predicted probs plot
+   annotate( "segment",
+    x = 0.9, y = 0.009, xend = 1.9, yend = 0.051,
+    color = 'red',
+    alpha = 0.7,
+    linewidth = 1
+  ) + 
+   
+   #add line connecting 'cognitive' disability points 
+   #using annotate() instead of geom_segment() so it doesnt inherit plotting properties from predicted probs plot
+   annotate( "segment",
+    x = 0.95, y = 0.023, xend = 1.95, yend = 0.091,
+    color = 'royalblue3',
+    alpha = 0.3,
+    linewidth = 1
+  ) 
+
+#grid.arrange(oudpain_plot, moudpain_plot,
+#             ncol = 2,
+#             top = "Predicted probabilities by disability type")
+
+#grid.arrange(remissionmoud_plot, remissionpain_plot, 
+#             ncol = 2,
+#             top = "Predicted probabilities of remission by disability type")
+
+(oudpain_plot |  moudpain_plot) / (remissionpain_plot | remissionmoud_plot ) +
+  plot_layout(guides = "collect")+ 
+  plot_annotation(
+    title = "Figure 1: Predicted probabilities of OUD, MOUD, and remission by disability type",
+    caption = "Predicted probabilities are for mean age (50.71 for whole sample, 53.08 for OUD population) and weighted\naverages across categorical variables (gender, race, ethnicity, chronic pain/ MOUD when not the outcome).\nSuperimposed lines represent significant interactions at alpha = 0.05.\nSample size is n=370,722 for OUD and n=7,328 for all other plots.") &
+  theme(legend.position = "top") 
+  
+
+```
+```{r}
+oudpain_plot
+moudpain_plot
+remissionpain_plot
+remissionmoud_plot
+```
+
+
+
+```{r}
+#check whether significance of predicted probs is same as regression results
+test_predictions(oud_painint_predictedprobs)#, p_adjust = "bonferroni")#, margin = "marginalmeans")
+#test_predictions(oud_painint_predictedprobs, test = "interaction")
+
+```
+
+```{r}
+test_predictions(moud_painint_predictedprobs)
+
+table(
+  moud_painint_predictedprobs$disability_group,
+  moud_painint_predictedprobs$any_chronicpain
+)
+```
+
+```{r}
+test_predictions(remission_moudint_predictedprobs)
+
+```
+
+```{r}
+test_predictions(remission_painint_predictedprobs)
+
+```
+
+
+
+```{r}
+library(emmeans)
+em <- emmeans(remission_moudint_mult_glm,
+              ~ disability_group * any_moud)
+
+plot(summary(em, type="response"))
+
+contrast(em, method="pairwise", type="response")
+```
+
